@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Import libraries
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(dplyr)
+library(ggsignif)
+
+work.dir <- "C:/Users/K C/Documents/K C/School of Visual Arts/SVA Spring 2025/Global Arts/Research paper/"
+```
+
+Import data, round <1 values to 0, and change values from character to numeric class
+
+```{r}
+setwd(work.dir)
+
+# Import google trend data
+eng <- read.csv("goshuin in english-timeline_Glimpse_Google-Trends.csv", skip=5)
+jpn <- read.csv("goshuin in japanese-timeline_Glimpse_Google-Trends.csv", skip=5) # skip first 5 lines that hold no data
+
+# Remove normalized data
+eng <- eng %>% select("Time", "Absolute.Google.Search.Volume")
+jpn <- jpn %>% select("Time", "Absolute.Google.Search.Volume")
+
+d <- merge(eng, jpn, by = "Time", all.x=TRUE, all.y=TRUE)
+colnames(d)[2] <- "Absolute.Google.Search.Volume.eng"
+colnames(d)[3] <- "Absolute.Google.Search.Volume.jpn"
+
+# Round down "<1" values to 0 for simplicity
+# input.data <- d
+# colnames(input.data) <- c("Month", "goshuin", "goshuin.in.japanese")
+# # which(input.data$goshuin == "<1") # lists indices that have <1 value
+# # which(input.data$goshuin.in.japanese == "<1")
+# input.data[input.data$goshuin == "<1",]$goshuin <- 0
+# input.data[input.data$goshuin.in.japanese == "<1",]$goshuin.in.japanese <- 0
+# input.data$goshuin <- as.numeric(input.data$goshuin)
+# input.data$goshuin.in.japanese <- as.numeric(input.data$goshuin.in.japanese)
+```
+
+
+```{r}
+plot.input <- melt(d)
+plot.input.line <- ggplot(data=plot.input, aes(x=Time, y=value, group=variable)) +
+  #scale_y_continuous(trans='log10') +
+  geom_line(aes(color=variable)) +
+  geom_point(aes(color=variable)) +
+  theme_classic() +
+  ggtitle("Number of times term was searched from 2004 - 2025") +
+  labs(y= "", x = "Time")
+```
+
+Sum all counts from monthly data to yearly data
+Plot line plots
+
+```{r}
+setwd(work.dir)
+
+# Convert all months to only year (ie. 2004-01 is Jan 2004. Change "2004-01" to "2004".)
+# Sum all monthly data into appropriate years
+input.data.year <- d
+input.data.year$Time <- gsub("-.*", "", input.data.year$Time)
+colnames(input.data.year)[1] <- "Year"
+
+input.data.year.jpn <- as.data.frame(input.data.year %>% group_by(Year) %>% summarise(goshuin.in.japanese = sum(Absolute.Google.Search.Volume.jpn)))
+input.data.year.eng <- as.data.frame(input.data.year %>% group_by(Year) %>% summarise(goshuin = sum(Absolute.Google.Search.Volume.eng)))
+
+data.year.merged <- merge(input.data.year.jpn, input.data.year.eng, by = "Year", all.x=TRUE, all.y=TRUE)
+data.year.melt <- melt(data.year.merged)
+# data.year.melt$value <- log10(data.year.melt$value)
+
+#tiff("google_trend_search_term_lineplot.tiff", 800, 500)
+plot.input.line <- ggplot(data=data.year.melt, aes(x=Year, y=value, group=variable)) +
+  geom_line(aes(color=variable)) +
+  geom_point(aes(color=variable)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  ylim(0, 2e7) +
+  scale_color_manual(labels = c("御朱印", "goshuin"), values = c("blue", "red")) +
+  ggtitle("Number of times term was searched") +
+  labs(y= "Number of searches", x = "Year")
+ggsave("google_trend_search_term_lineplot_both.png",
+       width = 6, height = 4, dpi = 300, units = "in", device='png')
+
+
+
+plot.input.line <- ggplot(data=input.data.year.eng, aes(x=Year, y=goshuin, group=1)) +
+  #scale_y_continuous(trans='log10') +
+  geom_line(color="red") +
+  geom_point(color="red") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  #scale_y_continuous(expand = c(0, 0)) +
+  ylim(0, 200000) +
+  ggtitle("Number of times `goshuin` was searched") +
+  labs(y= "Number of searches", x = "Year")
+ggsave("google_trend_search_term_lineplot_english.png",
+       width = 6, height = 4, dpi = 300, units = "in", device='png')
+
+
+plot.input.line <- ggplot(data=input.data.year.jpn, aes(x=Year, y=goshuin.in.japanese, group=1)) +
+  #scale_y_continuous(trans='log10') +
+  geom_line(color="blue") +
+  geom_point(color="blue") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  #scale_y_continuous(expand = c(0, 0)) +
+  ylim(0, 2e7) +
+  ggtitle("Number of times `御朱印` was searched") +
+  labs(y= "Number of searches", x = "Year")
+ggsave("google_trend_search_term_lineplot_japanese.png",
+       width = 6, height = 4, dpi = 300, units = "in", device='png')
+```
+
+Plot boxplots
+
+```{r}
+setwd(work.dir)
+
+data.year.log <- data.year.melt
+data.year.log$value <- log10(data.year.log$value+1) # +1 added to avoid negative infinity
+
+plot.input.box <- ggplot(data.year.log, aes(x=variable, y=value)) + geom_boxplot() +
+  ggtitle("Distribution of search term between 2003 and 2025") +
+  labs(y= "Number of searches (log10 scale)", x = "Search term") +
+  scale_x_discrete(labels=c("御朱印", "goshuin")) +
+  theme(text = element_text(size = 12)) +
+  #ylim(0, 8) +
+  geom_signif(comparisons = list(c("goshuin.in.japanese", "goshuin")), 
+              map_signif_level=TRUE)
+ggsave("google_trend_search_term_boxplot_both.png",
+       width = 6, height = 4, dpi = 300, units = "in", device='png')
+```
+
+
+Wilcoxon test
+
+```{r}
+wilcox.test(d$Absolute.Google.Search.Volume.jpn, d$Absolute.Google.Search.Volume.eng, alternative = c("greater"))
+```
+
+
+
+
+
