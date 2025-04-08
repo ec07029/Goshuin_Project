@@ -12,7 +12,7 @@ library(reshape2)
 library(dplyr)
 library(ggsignif)
 
-work.dir <- "C:/Users/K C/Documents/K C/School of Visual Arts/SVA Spring 2025/Global Arts/Research paper/"
+work.dir <- "C:/Global Arts/Research paper/"
 ```
 
 Import data, round <1 values to 0, and change values from character to numeric class
